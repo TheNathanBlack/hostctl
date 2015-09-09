@@ -27,7 +27,7 @@ var envCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		env.PrintEnv(os.Stdout, exportMode, secretsMode)
 		provider, _ := providers.Get(providerName, false)
-		if provider != nil {
+		if provider != nil && provider.Env() != nil {
 			provider.Env().PrintEnv(os.Stdout, exportMode, secretsMode)
 		}
 	},

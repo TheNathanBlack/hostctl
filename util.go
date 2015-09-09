@@ -4,10 +4,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gliderlabs/hostctl/providers"
+	"github.com/mitchellh/go-homedir"
 	"golang.org/x/crypto/ssh/terminal"
 )
 
@@ -46,6 +50,25 @@ func fatal(err error) {
 	}
 }
 
+func exists(path ...string) bool {
+	_, err := os.Stat(filepath.Join(path...))
+	if err == nil {
+		return true
+	}
+	if os.IsNotExist(err) {
+		return false
+	}
+	fatal(err)
+	return true
+}
+
+func expandHome(path string) string {
+	if len(path) > 1 && path[:2] == "~/" {
+		path, _ = homedir.Expand(path)
+	}
+	return path
+}
+
 func optArg(args []string, i int, default_ string) string {
 	if i+1 > len(args) {
 		return default_
@@ -53,19 +76,46 @@ func optArg(args []string, i int, default_ string) string {
 	return args[i]
 }
 
-func progressBar(unit string, interval time.Duration) chan bool {
+func progressBar(unit string, interval time.Duration) func() {
 	finished := make(chan bool)
 	go func() {
 		for {
 			select {
 			case <-finished:
-				fmt.Fprintln(os.Stderr)
 				return
-			default:
-				time.Sleep(interval * time.Second)
+			case <-time.After(interval * time.Second):
 				fmt.Fprint(os.Stderr, unit)
 			}
 		}
 	}()
-	return finished
+	return func() {
+		finished <- true
+		fmt.Fprintln(os.Stderr)
+	}
+}
+
+func source(filepath string) error {
+	file, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		return err
+	}
+
+	cmdStr := fmt.Sprintf("source %s 1>&2; env", filepath)
+	out, err := exec.Command("bash", "-c", cmdStr).Output()
+	if err != nil {
+		return err
+	}
+
+	fileStr := string(file)
+	outLines := strings.Split(string(out), "\n")
+	for _, line := range outLines {
+		lineSplit := strings.SplitN(line, "=", 2)
+		if len(lineSplit) != 2 {
+			continue
+		}
+		if strings.Contains(fileStr, lineSplit[0]) {
+			os.Setenv(lineSplit[0], lineSplit[1])
+		}
+	}
+	return nil
 }

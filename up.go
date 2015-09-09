@@ -35,6 +35,6 @@ var upCmd = &cobra.Command{
 			}
 			fatal(provider.Create(newHost(name)))
 		})
-		finished <- true
+		finished()
 	},
 }

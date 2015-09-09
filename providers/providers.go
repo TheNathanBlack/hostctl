@@ -2,6 +2,8 @@ package providers
 
 import (
 	"fmt"
+	"path/filepath"
+	"sync"
 
 	"github.com/MattAitchison/env"
 )
@@ -41,4 +43,60 @@ type Host struct {
 	Keyname  string
 	Flavor   string
 	Userdata string
+}
+
+type TestProvider struct {
+	mu    sync.Mutex
+	Hosts []Host
+}
+
+func (p *TestProvider) Setup() error {
+	return nil
+}
+
+func (p *TestProvider) Create(host Host) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.Hosts = append(p.Hosts, host)
+	return nil
+}
+
+func (p *TestProvider) Destroy(name string) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	var hosts []Host
+	for i := range p.Hosts {
+		if p.Hosts[i].Name != name {
+			hosts = append(hosts, p.Hosts[i])
+		}
+	}
+	p.Hosts = hosts
+	return nil
+}
+
+func (p *TestProvider) List(pattern string) []Host {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	var hosts []Host
+	for i := range p.Hosts {
+		if ok, _ := filepath.Match(pattern, p.Hosts[i].Name); ok {
+			hosts = append(hosts, p.Hosts[i])
+		}
+	}
+	return hosts
+}
+
+func (p *TestProvider) Get(name string) *Host {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for i := range p.Hosts {
+		if p.Hosts[i].Name == name {
+			return &p.Hosts[i]
+		}
+	}
+	return nil
+}
+
+func (p *TestProvider) Env() *env.EnvSet {
+	return nil
 }

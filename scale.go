@@ -49,7 +49,7 @@ var scaleCmd = &cobra.Command{
 				return
 			}
 		})
-		finished <- true
+		finished()
 	},
 }
 

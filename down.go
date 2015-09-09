@@ -34,6 +34,6 @@ var downCmd = &cobra.Command{
 			}
 			fatal(provider.Destroy(name))
 		})
-		finished <- true
+		finished()
 	},
 }
